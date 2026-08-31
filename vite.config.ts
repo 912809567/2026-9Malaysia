@@ -22,6 +22,7 @@ export default defineConfig({
       ],
     },
     workbox: {
+      cacheId: 'malaysia-trip-2026-v4',
       globPatterns: ['**/*.{js,css,html,webp,png,svg,woff2}'],
       navigateFallback: 'index.html',
       runtimeCaching: [{ urlPattern: /^https:\/\/.*\.tile\.openstreetmap\.org\//, handler: 'NetworkOnly', options: { cacheName: 'map-tiles' } }],

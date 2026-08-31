@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run audit:images && tsc -b && vite build && npm run audit:dist",
     "preview": "vite preview",
     "lint": "tsc -b --pretty false",
-    "audit:images": "node scripts/audit-images.mjs"
+    "audit:images": "node scripts/audit-images.mjs",
+    "audit:dist": "node scripts/audit-images.mjs --dist"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
