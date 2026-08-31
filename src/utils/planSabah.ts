@@ -15,4 +15,4 @@ export function planSabah(weather:SabahWeather):SabahPlan{
  return plan
 }
 export function activityLabel(activity:SabahActivity){return {mengalum:'环滩岛 Mengalum',tarp:'TARP双岛 · Sapi＋Manukan',mangrove:'Klias红树林',city:'市区休闲',rest:'酒店 / 按摩 / 海鲜 / 榴莲'}[activity]}
-export function shortDate(date:SabahDate){return `${Number(date.slice(8,10))}/`}
+export function shortDate(date:SabahDate){return `9/${Number(date.slice(8,10))}`}
