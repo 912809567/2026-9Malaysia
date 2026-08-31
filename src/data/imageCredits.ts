@@ -1,7 +1,48 @@
-export type ImageCredit={file:string;source:string;author:string;license:string;original:string}
+export type ImageCredit={id:string;file:string;source:string;author:string;license:string;licenseUrl?:string;original:string;modified:string}
+
+const filePage=(file:string)=>'https://commons.wikimedia.org/wiki/File:'+encodeURIComponent(file).replace(/%20/g,'_')
+const commonsCredit=(id:string,file:string,author='Commons 文件页署名',license='Commons 文件页许可（以文件页为准）'):ImageCredit=>({id,file,source:'Wikimedia Commons',author,license,licenseUrl:filePage(file),original:filePage(file),modified:'原图直链，未裁切；网站仅做懒加载与容器裁切'})
+
 export const imageCredits:ImageCredit[]=[
- {file:'hero-malaysia.webp / merdeka.webp',source:'Wikimedia Commons',author:'Marcin Konsek (Halavar)',license:'CC BY-SA 4.0',original:'https://commons.wikimedia.org/wiki/File:2016_Kuala_Lumpur,_Dataran_Merdeka_(02).jpg'},
- {file:'batu.webp',source:'Wikimedia Commons',author:'CEphoto, Uwe Aranas',license:'CC BY-SA 3.0',original:'https://commons.wikimedia.org/wiki/File:Gombak_Selangor_Batu-Caves-01.jpg'},
- {file:'mengalum.webp',source:'Wikimedia Commons',author:'rollanb',license:'CC BY-SA 2.0',original:'https://commons.wikimedia.org/wiki/File:Mengalum_Island_Resort_reception.jpg'},
- {file:'manukan.webp',source:'Wikimedia Commons',author:'Stefan Fussan',license:'CC BY-SA 2.0',original:'https://commons.wikimedia.org/wiki/File:Pier_of_Manukan_Island,_Tunku_Abdul_Tahman_Park,_Sabah,_Borneo_Malaysia.jpg'}
+ {id:'hero-malaysia',file:'hero-malaysia.webp',source:'Wikimedia Commons',author:'Marcin Konsek (Halavar)',license:'CC BY-SA 4.0',licenseUrl:'https://creativecommons.org/licenses/by-sa/4.0/',original:'https://commons.wikimedia.org/wiki/File:2016_Kuala_Lumpur,_Dataran_Merdeka_(02).jpg',modified:'既有本地压缩图；本轮不再作为景点主图'},
+ commonsCredit('petronas-night-01','Petronas twin towers at night.jpg','Bruce Poon','CC BY-SA 4.0'),
+ commonsCredit('petronas-klcc-park-02','The Petronas Twin Towers & KLCC Park.jpg','Russavia','CC BY 2.0'),
+ commonsCredit('petronas-day-03','Petronas Towers by Day-Edit(ws).jpg','File Upload Bot (Magnus Manske)','许可见文件页'),
+ commonsCredit('merdeka-square-01','2016 Kuala Lumpur, Dataran Merdeka (02).jpg','Marcin Konsek (Halavar)','CC BY-SA 4.0'),
+ commonsCredit('merdeka-square-02','Merdeka Square Kuala Lumpur Malaysia 2.jpg','文件页未标注作者','CC BY 4.0'),
+ commonsCredit('sultan-abdul-samad-01','Close up of Sultan Abdul Samad Building clock tower.JPG','文件页署名见来源页','许可见文件页'),
+ commonsCredit('sultan-abdul-samad-02','Sultan Abdul Samad building (7904743438).jpg','shankar s.','CC BY 2.0'),
+ commonsCredit('central-market-01','Pasar Seni (Central Market) exterior, Kuala Lumpur 20231114 102911.jpg','Wiki Farazi','CC0'),
+ commonsCredit('central-market-02','Pasar Seni (Central Market) interior, Kuala Lumpur 20231114 104321.jpg','Wiki Farazi','CC0'),
+ commonsCredit('petaling-street-01','Petaling Street.JPG','文件页未标注作者','Public domain（PD-self）'),
+ commonsCredit('petaling-street-02','Petaling Street, a Chinatown area in the city of Kuala Lumpur (1).jpg','Sam Hidayat','CC BY-SA 4.0'),
+ commonsCredit('kwai-chai-hong-01','Kwai Chai Hong 1.jpg','Slleong','CC0'),
+ commonsCredit('kwai-chai-hong-03','Kwai Chai Hong 3.jpg','Slleong','CC0'),
+ commonsCredit('batu-caves-01','Gombak Selangor Batu-Caves-01.jpg','CEphoto, Uwe Aranas','CC BY-SA 3.0'),
+ commonsCredit('batu-caves-05','Batu Caves, Kuala Lumpur 05.jpg','Slyronit','CC BY-SA 4.0'),
+ commonsCredit('batu-caves-06','Temple Cave, Batu Caves (6).jpg','Radosław Botev','许可见文件页'),
+ commonsCredit('tanjung-aru-sunset-01','Sunset At Tanjung Aru Beach.jpg','Irvine Isaac','CC BY-SA 4.0'),
+ commonsCredit('tanjung-aru-sunset-02','Sunset in Tanjung Aru, September 2025.jpg','Toffee Dude','CC BY-SA 4.0'),
+ commonsCredit('tanjung-aru-sunset-03','Tanjung Aru beach sunset view.jpg','Cerevisae','CC BY-SA 4.0'),
+ commonsCredit('gaya-street-01','KotaKinabalu Sabah Memorial-stone-Gaya-Street-01.jpg','CEphoto, Uwe Aranas','CC BY-SA 3.0'),
+ commonsCredit('api-api-night-01','Kota Kinabalu Night Market (2600842148).jpg','Marufish','CC BY-SA 2.0'),
+ commonsCredit('api-api-night-02','Grilled fish from Night Food Market in Kota Kinabalu.jpg','BiancaBrazal','CC BY-SA 4.0'),
+ commonsCredit('kk-waterfront-02','Kota Kinabalu waterfront, 2024 (02).jpg','Bahnfrend','CC BY-SA 4.0'),
+ commonsCredit('kk-waterfront-03','Kota Kinabalu waterfront, 2024 (03).jpg','Bahnfrend','CC BY-SA 4.0'),
+ commonsCredit('mengalum-reception-01','Mengalum Island Resort reception.jpg','rollanb','CC BY-SA 2.0'),
+ commonsCredit('mengalum-beach-reference-02','Jewel_of_Island_in_Terengganu.jpg','Commons 文件页署名','许可见文件页'),
+ commonsCredit('mengalum-underwater-reference-03','Coral_reef_of_Perhentian_Islands.jpg','Commons 文件页署名','许可见文件页'),
+ commonsCredit('mengalum-snorkeling-reference-04','Coral_planting_on_Pom_Pom_Island.JPG','Commons 文件页署名','许可见文件页'),
+ commonsCredit('tarp-park-01','Tunku Abdul Rahman National Park.jpg','Scipio66africanus','CC BY-SA 4.0'),
+ commonsCredit('tarp-sunshine-01','Tunku Abdul Rahman Park Sunshine 01.jpg','Atlasmotor','CC BY-SA 3.0'),
+ commonsCredit('tarp-sunshine-02','Tunku Abdul Rahman Park Sunshine 02.jpg','Atlasmotor','CC BY-SA 3.0'),
+ commonsCredit('sapi-island-01','Sapi Island 1.jpg','Mx. Granger','CC0'),
+ commonsCredit('sapi-island-02','Sapi Island 2.jpg','Mx. Granger','CC0'),
+ commonsCredit('sapi-island-03','Sapi Island 3.jpg','Mx. Granger','CC0'),
+ commonsCredit('manukan-beach-01','Manukan Island Beach.jpg','文件页未标注作者','CC BY-SA 3.0 / GFDL'),
+ commonsCredit('manukan-jetty-02','Manukan Island Jetty View of KK.jpg','文件页未标注作者','CC BY-SA 3.0 / GFDL'),
+ commonsCredit('manukan-pier-03','Pier of Manukan Island, Tunku Abdul Tahman Park, Sabah, Borneo Malaysia.jpg','Stefan Fussan','CC BY-SA 2.0'),
+ commonsCredit('klias-river-01','Klias River.jpg','Markac89','CC BY-SA 4.0'),
+ commonsCredit('klias-river-02','RiversOfSabah SungaiKlias-01.jpg','CEphoto, Uwe Aranas','CC BY-SA 3.0'),
+ commonsCredit('klias-monkey-03','Klias Wetlands Proboscis Monkey 01.jpg','DerFussi','许可见文件页')
 ]
