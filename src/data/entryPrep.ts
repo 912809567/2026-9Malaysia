@@ -10,7 +10,7 @@ export const entryPrepItems: EntryPrepItem[] = [
   {
     id: 'passport',
     title: '护照有效期',
-    copy: '中国普通护照建议至少还有6个月有效期；出发前再次核对签证和入境政策，以马来西亚官方最新信息为准。',
+    copy: '中国大陆普通护照目前可按免签政策准备；仍需至少还有6个月有效期，并以马来西亚官方最新政策为准。',
   },
   {
     id: 'offline-docs',
