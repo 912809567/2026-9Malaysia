@@ -34,7 +34,7 @@ npm run build
 
 ## 图片
 
-景点图片已全部下载到 `public/images/places/` 并转换为 WebP，页面运行时不再请求 Wikimedia 图片直链；原始文件页、作者和许可仍保留在网站“图片来源”折叠项与 `src/data/imageCredits.ts` 中。图片最长边约1280px，页面按容器裁切。
+景点图片已全部下载到 `public/images/places/` 并转换为 WebP，页面运行时不再请求 Wikimedia 图片直链；原始文件页、作者和许可仍保留在网站“图片来源”折叠项与 `src/data/imageCredits.ts` 中。图片最长边约1280px，页面按容器裁切。环滩岛海滩/浮潜图和 Api Api 夜市图中，未能确认目标地点的授权实景时会明确标注“体验示意”，不冒充现场照片；Gaya Street 图为普通街景资料图，不是 Sunday Market。
 
 运行图片审计：
 

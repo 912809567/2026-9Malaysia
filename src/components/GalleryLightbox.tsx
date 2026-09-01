@@ -9,7 +9,7 @@ type Props={place:DiscoverPlace;initialIndex?:number;onClose:()=>void;onOpenDay?
 
 export function GalleryLightbox({place,initialIndex=0,onClose,onOpenDay,day}:Props){
   const [index,setIndex]=useState(Math.min(Math.max(initialIndex,0),Math.max(place.images.length-1,0)))
-  const touchStart=useRef<number|null>(null)
+  const touchStart=useRef<{x:number;y:number}|null>(null)
   const image=place.images[index]
   const credit=imageCredits.find(item=>item.id===image.creditId)
   useEffect(()=>setIndex(Math.min(Math.max(initialIndex,0),Math.max(place.images.length-1,0))),[place.id,initialIndex,place.images.length])
@@ -29,11 +29,14 @@ export function GalleryLightbox({place,initialIndex=0,onClose,onOpenDay,day}:Pro
     adjacent.forEach(item=>{if(item?.src){const preload=new Image();preload.src=resolveImageSrc(item.src)}})
   },[index,place.images])
   const move=(delta:number)=>setIndex(current=>(current+delta+place.images.length)%place.images.length)
-  const handleTouchStart=(event:TouchEvent)=>{touchStart.current=event.changedTouches[0]?.clientX??null}
+  const handleTouchStart=(event:TouchEvent)=>{const touch=event.changedTouches[0];touchStart.current=touch?{x:touch.clientX,y:touch.clientY}:null}
   const handleTouchEnd=(event:TouchEvent)=>{
     if(touchStart.current===null)return
-    const distance=(event.changedTouches[0]?.clientX??touchStart.current)-touchStart.current
-    if(Math.abs(distance)>45)move(distance<0?1:-1)
+    const touch=event.changedTouches[0]
+    if(!touch){touchStart.current=null;return}
+    const deltaX=touch.clientX-touchStart.current.x
+    const deltaY=touch.clientY-touchStart.current.y
+    if(Math.abs(deltaX)>45&&Math.abs(deltaX)>Math.abs(deltaY)*1.2)move(deltaX<0?1:-1)
     touchStart.current=null
   }
   return <div className="lightbox" role="dialog" aria-modal="true" aria-label={place.title} onClick={onClose}>
@@ -41,6 +44,7 @@ export function GalleryLightbox({place,initialIndex=0,onClose,onOpenDay,day}:Pro
     <div className="lightbox-content" onClick={event=>event.stopPropagation()} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <div className="gallery-stage">
         <ResponsiveImage className="gallery-image" src={image.src} alt={image.alt} loading="eager"/>
+        {image.isReference&&<span className="reference-badge">{image.referenceLabel??'体验示意'}</span>}
         {place.images.length>1&&<><button className="gallery-control gallery-prev" onClick={()=>move(-1)} aria-label="上一张"><ChevronLeft/></button><button className="gallery-control gallery-next" onClick={()=>move(1)} aria-label="下一张"><ChevronRight/></button></>}
         <span className="gallery-count">{index+1} / {place.images.length}</span>
       </div>

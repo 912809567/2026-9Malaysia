@@ -19,6 +19,7 @@ function Picture({place,onClick}:{place:DiscoverPlace;onClick:(index:number)=>vo
   const image=place.images[place.coverImageIndex??0]
   return <button className="discover-picture" onClick={()=>onClick(place.coverImageIndex??0)} aria-label={'查看'+place.title+'相册'}>
     {image?<ResponsiveImage className="discover-cover-image" src={image.src} alt={image.alt}/>:<div className="discover-placeholder"><ImageIcon size={24}/><span>{place.title}</span></div>}
+    {image?.isReference&&<span className="reference-badge">{image.referenceLabel??'体验示意'}</span>}
     {place.images.length>1&&<span className="picture-count">▧ {place.images.length}</span>}
     <span className="picture-open">查看相册</span>
   </button>
