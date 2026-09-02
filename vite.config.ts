@@ -24,8 +24,12 @@ export default defineConfig({
     workbox: {
       cacheId: 'malaysia-trip-2026-v4',
       globPatterns: ['**/*.{js,css,html,webp,png,svg,woff2}'],
+      globIgnores: ['**/images/alternatives/**'],
       navigateFallback: 'index.html',
-      runtimeCaching: [{ urlPattern: /^https:\/\/.*\.tile\.openstreetmap\.org\//, handler: 'NetworkOnly', options: { cacheName: 'map-tiles' } }],
+      runtimeCaching: [
+        { urlPattern: ({ url }) => url.pathname.includes('/images/alternatives/'), handler: 'CacheFirst', options: { cacheName: 'alternative-images', expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 60 }, cacheableResponse: { statuses: [0, 200] } } },
+        { urlPattern: /^https:\/\/.*\.tile\.openstreetmap\.org\//, handler: 'NetworkOnly', options: { cacheName: 'map-tiles' } },
+      ],
     },
   })],
   base: './',

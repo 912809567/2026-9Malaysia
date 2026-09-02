@@ -6,71 +6,123 @@ const root = process.cwd()
 const isDistAudit = process.argv.includes('--dist')
 const sourceFiles = await walk(path.join(root, 'src'), /\.(ts|tsx)$/i)
 const sourceText = (await Promise.all(sourceFiles.map(file => fs.readFile(file, 'utf8')))).join('\n')
-const credits = await fs.readFile(path.join(root, 'src/data/imageCredits.ts'), 'utf8')
-const localRefs = [...sourceText.matchAll(/['"]((?:images|icons)\/[A-Za-z0-9_./-]+\.(?:webp|png|jpe?g|svg))['"]/gi)].map(match => match[1])
-const uniqueRefs = [...new Set(localRefs)]
+const creditText = await fs.readFile(path.join(root, 'src/data/imageCredits.ts'), 'utf8')
+const manifestPath = path.join(root, 'scripts/alternative-image-manifest.json')
+const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'))
+const configText = await fs.readFile(path.join(root, 'vite.config.ts'), 'utf8')
+
+const staticRefs = [...sourceText.matchAll(/['"]((?:images|icons)\/[A-Za-z0-9_./-]+\.(?:webp|png|jpe?g|svg))['"]/gi)].map(match => match[1])
+const manifestRefs = manifest.map(item => item.file)
+const uniqueRefs = [...new Set([...staticRefs, ...manifestRefs])]
 const missingLocal = []
 for (const ref of uniqueRefs) {
   if (!await exists(path.join(root, 'public', ref))) missingLocal.push(ref)
 }
-const creditIds = new Set([...credits.matchAll(/(?:id|commonsCredit)[:(]'([^']+)'/g)].map(match => match[1]))
-const imageCreditIds = [...sourceText.matchAll(/creditId\s*:\s*'([^']+)'/g)].map(match => match[1])
-const uncredited = imageCreditIds.filter(id => !creditIds.has(id))
+
+const creditIds = new Set([...creditText.matchAll(/(?:id\s*:\s*|(?:commonsCredit|alternativeCredit)\s*\()\s*['"]([^'"]+)['"]/g)].map(match => match[1]))
+const staticCreditIds = [...sourceText.matchAll(/creditId\s*:\s*['"]([^'"]+)['"]/g)].map(match => match[1])
+const manifestCreditIds = manifest.map(item => 'alternative-' + item.id + '-' + String(item.index).padStart(2, '0'))
+const expectedCreditIds = [...new Set([...staticCreditIds, ...manifestCreditIds])]
+const uncredited = expectedCreditIds.filter(id => !creditIds.has(id))
+const duplicateCreditIds = [...creditIds].filter((id, index, all) => all.indexOf(id) !== index)
+
+const invalidManifest = manifest.filter(item => !item.file || !item.sourceUrl || !item.license || !item.licenseUrl || !(item.author || 'Wikimedia Commons 文件页署名'))
+const manifestMissingLocal = []
+for (const item of manifest) {
+  if (!await exists(path.join(root, 'public', item.file))) manifestMissingLocal.push(item.file)
+}
 const imageFiles = await walk(path.join(root, 'public', 'images'), /\.(webp|png|jpe?g)$/i)
 const large = []
+const candidateLarge = []
 const dimensionWarnings = []
 const dimensions = []
 const hashes = new Map()
 const duplicateHashes = []
+const candidatePaths = new Set(manifestRefs.map(file => path.normalize(path.join(root, 'public', file))))
+
 for (const file of imageFiles) {
+  const relative = path.relative(root, file)
   const stat = await fs.stat(file)
-  if (stat.size > 500 * 1024) large.push(path.relative(root, file) + ' (' + Math.round(stat.size / 1024) + ' KB)')
+  if (stat.size > 500 * 1024) {
+    large.push(relative + ' (' + Math.round(stat.size / 1024) + ' KB)')
+    if (candidatePaths.has(path.normalize(file))) candidateLarge.push(relative + ' (' + Math.round(stat.size / 1024) + ' KB)')
+  }
   const buffer = await fs.readFile(file)
   const hash = createHash('sha256').update(buffer).digest('hex')
   const size = readImageDimensions(buffer)
   if (size) {
     const longEdge = Math.max(size.width, size.height)
-    dimensions.push({ file: path.relative(root, file), width: size.width, height: size.height })
-    if (longEdge > 1600) dimensionWarnings.push(path.relative(root, file) + ' (' + size.width + '×' + size.height + ')')
+    dimensions.push({ file: relative, width: size.width, height: size.height })
+    if (longEdge > 1600) dimensionWarnings.push(relative + ' (' + size.width + '×' + size.height + ')')
   }
   const old = hashes.get(hash)
-  if (old) duplicateHashes.push(path.relative(root, old) + ' = ' + path.relative(root, file))
+  if (old) duplicateHashes.push(path.relative(root, old) + ' = ' + relative)
   hashes.set(hash, file)
 }
 
+const aiTokens = /DALL[·-]?E|Midjourney|Stable Diffusion|AI[- ]generated|人工智能生成/i
+const aiImages = manifest.filter(item => aiTokens.test((item.title || '') + ' ' + (item.sourceUrl || '') + ' ' + (item.author || ''))).map(item => item.file)
+const candidatesWithNoCredit = manifest.filter(item => !creditIds.has('alternative-' + item.id + '-' + String(item.index).padStart(2, '0')))
+const candidateDimensionWarnings = manifest.filter(item => dimensionWarnings.some(file => file.startsWith(item.file))).length
+const runtimeCacheConfigured = configText.includes('globIgnores') && configText.includes('images/alternatives') && configText.includes('alternative-images')
+const failedChecks = missingLocal.length || manifestMissingLocal.length || uncredited.length || invalidManifest.length || candidatesWithNoCredit.length || duplicateCreditIds.length || duplicateHashes.length || candidateLarge.length || candidateDimensionWarnings || aiImages.length || !runtimeCacheConfigured
+
+console.log('✓ ' + manifest.length + ' candidate image manifest records')
 console.log('✓ ' + uniqueRefs.length + ' local image references')
 console.log('✓ ' + missingLocal.length + ' missing local files')
+console.log('✓ ' + manifestMissingLocal.length + ' missing manifest files')
 console.log('✓ ' + uncredited.length + ' uncredited gallery images')
+console.log('✓ ' + invalidManifest.length + ' incomplete candidate credits')
+console.log('✓ ' + duplicateCreditIds.length + ' duplicate credit IDs')
 console.log('✓ ' + duplicateHashes.length + ' duplicate local hashes')
+console.log('✓ ' + aiImages.length + ' AI image references')
+console.log('✓ candidate runtime cache configuration: ' + (runtimeCacheConfigured ? 'passed' : 'failed'))
 if (dimensions.length) {
   const maxLongEdge = Math.max(...dimensions.map(item => Math.max(item.width, item.height)))
   const minLongEdge = Math.min(...dimensions.map(item => Math.max(item.width, item.height)))
   console.log('✓ dimensions read: ' + dimensions.length + ' files; long edge ' + minLongEdge + '—' + maxLongEdge + ' px')
 }
-if (large.length) console.log('⚠ image > 500 KB: ' + large.join(', '))
-if (dimensionWarnings.length) console.log('⚠ image long edge > 1600 px: ' + dimensionWarnings.join(', '))
-const unconfirmedLicenses = (credits.slice(credits.indexOf('export const imageCredits')).match(/许可见文件页|Commons 文件页许可（以文件页为准）/g) || []).length
-console.log('✓ ' + unconfirmedLicenses + ' credits still marked for license-page review')
-if (missingLocal.length || uncredited.length || duplicateHashes.length) process.exitCode = 1
+console.log('✓ candidate images > 500 KB: ' + candidateLarge.length)
+console.log('✓ all local images > 500 KB: ' + large.length)
+console.log('✓ candidate images > 1600 px long edge: ' + candidateDimensionWarnings)
+if (missingLocal.length) console.log('✗ missing source references: ' + missingLocal.join(', '))
+if (manifestMissingLocal.length) console.log('✗ missing manifest files: ' + manifestMissingLocal.join(', '))
+if (uncredited.length) console.log('✗ uncredited IDs: ' + uncredited.join(', '))
+if (invalidManifest.length) console.log('✗ incomplete manifest credits: ' + invalidManifest.map(item => item.file).join(', '))
+if (duplicateHashes.length) console.log('✗ duplicate hashes: ' + duplicateHashes.join(', '))
+if (candidateLarge.length) console.log('✗ candidate images over 500 KB: ' + candidateLarge.join(', '))
+if (aiImages.length) console.log('✗ possible AI image references: ' + aiImages.join(', '))
+if (!runtimeCacheConfigured) console.log('✗ candidate images must remain outside precache and use the dedicated runtime cache')
+if (failedChecks) process.exitCode = 1
 
 if (isDistAudit) {
-  const distFiles = await walk(path.join(root, 'dist'), /\.(js|css|html|webmanifest|json|svg)$/i)
-  const distText = (await Promise.all(distFiles.map(file => fs.readFile(file, 'utf8')))).join('\n')
-  const remoteImageUrls = [
-    'commons.wikimedia.org/wiki/Special:Redirect',
-    'upload.wikimedia.org',
-  ].filter(token => distText.includes(token))
-  console.log('✓ dist image URL audit: ' + (remoteImageUrls.length ? 'failed' : 'passed'))
-  if (remoteImageUrls.length) {
-    console.log('✗ forbidden remote image tokens: ' + remoteImageUrls.join(', '))
+  if (!await exists(path.join(root, 'dist'))) {
+    console.log('✗ dist directory is missing')
     process.exitCode = 1
   } else {
-    console.log('  attribution links may remain as original file pages; runtime images are local')
+    const distFiles = await walk(path.join(root, 'dist'), /\.(js|css|html|webmanifest|json|svg)$/i)
+    const distText = (await Promise.all(distFiles.map(file => fs.readFile(file, 'utf8')))).join('\n')
+    const remoteImageUrls = [
+      'commons.wikimedia.org/wiki/Special:Redirect',
+      'upload.wikimedia.org',
+    ].filter(token => distText.includes(token))
+    console.log('✓ dist image URL audit: ' + (remoteImageUrls.length ? 'failed' : 'passed'))
+    if (remoteImageUrls.length) {
+      console.log('✗ forbidden remote image tokens: ' + remoteImageUrls.join(', '))
+      process.exitCode = 1
+    } else {
+      console.log('  attribution links may remain as original file pages; runtime images are local')
+    }
   }
 }
 
 async function exists(file) {
-  try { await fs.access(file); return true } catch { return false }
+  try {
+    await fs.access(file)
+    return true
+  } catch {
+    return false
+  }
 }
 
 async function walk(dir, matcher) {

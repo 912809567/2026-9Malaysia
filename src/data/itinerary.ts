@@ -1,4 +1,8 @@
+import { alternativeById, type AlternativeAttraction } from './alternatives'
+
 export type ReservationStatus = 'must' | 'recommended' | 'none' | 'booked'
+export type Replaceability = 'fixed' | 'major' | 'flexible'
+export type SlotType = 'short' | 'half-day' | 'full-day'
 
 export type ItineraryItem = {
   id: string
@@ -37,6 +41,16 @@ export type ItineraryItem = {
   sourceName?: string
   sourceLink?: string
   mapTarget?: string
+  replaceability?: Replaceability
+  slotType?: SlotType
+  slotId?: string
+  source?: 'default' | 'custom'
+  alternativeId?: string
+  zone?: string
+  routeMinutes?: number
+  nextRouteMinutes?: number
+  environment?: 'indoor' | 'outdoor' | 'mixed'
+  sunExposure?: 'low' | 'medium' | 'high'
 }
 
 export type DayPlan = { date: string; weekday: string; title: string; intensity: string; items: ItineraryItem[] }
@@ -121,7 +135,7 @@ export const itinerary: DayPlan[] = [
       {
         id: 'd8-1',
         time: '09:30',
-        title: '独立广场老城连续步行线',
+        title: '中央市场段 · 独立广场老城连续步行线',
         summary: '独立广场 → 苏丹阿都沙末大厦 → 中央市场 → 茨厂街 → 鬼仔巷。',
         details: ['全程约3—4km，慢走约3小时；中央市场安排为室内降温中场', '13:30—16:00回酒店午休 / 泳池，不把老城线和下午登塔硬拼'],
         dateTime: '2026-09-08T09:30:00+08:00',
@@ -322,7 +336,68 @@ export const itinerary: DayPlan[] = [
   },
 ]
 
-export function createSabahActivityItem(date: '2026-09-10' | '2026-09-11' | '2026-09-12', activity: string): ItineraryItem {
+type CustomSabahActivity = { source: 'alternative'; attractionId: string }
+
+function alternativeSabahItem(date: '2026-09-10' | '2026-09-11' | '2026-09-12', candidate: AlternativeAttraction): ItineraryItem {
+  const durationHours = Math.floor(candidate.durationMin / 60)
+  const durationText = candidate.durationMin % 60 === 0
+    ? `约${durationHours}小时`
+    : `约${durationHours}小时${candidate.durationMin % 60}分钟`
+  const startTime = candidate.timeScope === 'full-day' || candidate.recommendedTime === 'morning'
+    ? '07:00'
+    : candidate.recommendedTime === 'evening' || candidate.recommendedTime === 'night' ? '16:30' : '11:00'
+  const bookingStatus: ReservationStatus = candidate.bookingRequired ? 'must' : 'none'
+  return {
+    id: `${date}-alternative-${candidate.id}`,
+    slotId: `sabah-main-${date}`,
+    source: 'custom',
+    alternativeId: candidate.id,
+    time: startTime,
+    title: candidate.nameZh,
+    summary: candidate.shortDescription,
+    details: [candidate.description, `区域：${candidate.area} · 建议游览${durationText}`, `这是自定义计划；天气助手不会自动改回默认海岛排期。`, ...candidate.recommendationReasons.map(reason => `为什么去：${reason}`)],
+    dateTime: `${date}T${startTime}:00+08:00`,
+    tone: candidate.physicalLoad === 'high' ? 'warning' : '',
+    image: candidate.images[0]?.src,
+    galleryPlaceId: `alternative:${candidate.id}`,
+    from: '亚庇凯悦尚萃酒店',
+    to: candidate.nameZh,
+    transportMode: candidate.timeScope === 'full-day' ? 'Grab / 包车 / 运营商接送' : 'Grab / 步行',
+    distance: '按官方接送路线与当天路况确认',
+    duration: durationText,
+    recommendedDepartureTime: candidate.timeScope === 'full-day' ? '约06:30—07:00，从酒店出发' : `${startTime} 前按当天路线出发`,
+    arrivalTime: candidate.timeScope === 'full-day' ? '约07:30—08:00抵达首个节点' : '按官方开放与路线确认',
+    buffer: candidate.bookingRequired ? '预约 / 报到额外预留20—30分钟' : '保留约15分钟找路和补水缓冲',
+    reservationStatus: bookingStatus,
+    reservationTiming: candidate.bookingRequired ? candidate.bookingRecommendation : undefined,
+    bookingChannel: candidate.bookingRequired ? '景点官方页面 / 运营商' : undefined,
+    bookingLink: candidate.bookingRequired ? candidate.sourceUrl : undefined,
+    ticketOrFee: '门票、接送和费用以官方页面或运营商最终信息为准',
+    meetingPoint: candidate.bookingRequired ? '以官方订单确认的集合点为准' : undefined,
+    whatToBring: ['手机充电宝', candidate.environment === 'indoor' ? '轻便衣物' : '防晒与饮用水'],
+    dressCode: candidate.category === 'religion' ? '进入宗教场所按现场要求遮肩、过膝并脱鞋。' : undefined,
+    weatherRisk: candidate.rainyDayFit === 'poor' ? '纯户外项目；雷雨或大雨时按官方与运营商安排执行 Plan B。' : candidate.rainyDayFit === 'excellent' ? '雨天友好，但仍以官方开放状态为准。' : '天气变化时按现场开放、能见度和交通情况调整。',
+    fallbackPlan: '若关闭、预约失败或体力不足，回到亚庇市区安排室内休息、咖啡或提前晚餐，不强行补景点。',
+    onSiteSteps: ['打开官方订单或景点页面，确认当天开放与集合安排', '到入口 / 集合点核对预约、人数和入场规则', '按下一项时间和路线继续行程'],
+    notes: `${candidate.recommendationReasons[0] ?? '按候选景点资料安排'}；这是用户自定义的亚庇计划，天气助手只提供参考，不会覆盖它。`,
+    verifiedAt: candidate.verifiedAt,
+    sourceName: candidate.sourceName,
+    sourceLink: candidate.sourceUrl,
+    mapTarget: candidate.mapQuery,
+    replaceability: 'major',
+    slotType: candidate.timeScope,
+    zone: candidate.area,
+    environment: candidate.environment,
+    sunExposure: candidate.sunExposure,
+  }
+}
+
+export function createSabahActivityItem(date: '2026-09-10' | '2026-09-11' | '2026-09-12', activity: string | CustomSabahActivity): ItineraryItem {
+  if (typeof activity === 'object') {
+    const candidate = alternativeById[activity.attractionId]
+    if (candidate) return alternativeSabahItem(date, candidate)
+    activity = 'rest'
+  }
   const common = {
     mengalum: {
       time: '08:00',
@@ -470,5 +545,10 @@ export function createSabahActivityItem(date: '2026-09-10' | '2026-09-11' | '202
     sourceName: common.sourceName,
     sourceLink: common.sourceLink,
     mapTarget: common.mapTarget,
+    replaceability: ['mengalum', 'tarp', 'mangrove'].includes(activity) ? 'major' : 'flexible',
+    slotType: ['mengalum', 'tarp', 'mangrove'].includes(activity) ? 'full-day' : 'half-day',
+    slotId: `sabah-main-${date}`,
+    source: 'default',
+    zone: 'Gaya / City Centre',
   }
 }

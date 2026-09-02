@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "tsc -b --pretty false",
     "audit:images": "node scripts/audit-images.mjs",
-    "audit:dist": "node scripts/audit-images.mjs --dist"
+    "audit:dist": "node scripts/audit-images.mjs --dist",
+    "test:itinerary": "tsx scripts/test-itinerary.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
@@ -25,6 +26,7 @@
     "@types/leaflet": "^1.9.22",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
+    "tsx": "^4.23.13",
     "vite-plugin-pwa": "^1.3.0"
   }
 }

@@ -1,19 +1,31 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { ExternalLink, MapPin } from 'lucide-react'
 import { places } from '../data/places'
+import type { ItineraryItem } from '../data/itinerary'
+import { alternativeById } from '../data/alternatives'
 
 type Jetty = { name: string; url: string }
 type Props = {
   jetty?: Jetty
   focusTarget?: string
+  itineraryItems?: ItineraryItem[]
 }
 
-export function MapView({ jetty, focusTarget }: Props) {
+export function MapView({ jetty, focusTarget, itineraryItems = [] }: Props) {
   const mapRef = useRef<HTMLDivElement>(null)
   const [city, setCity] = useState<'吉隆坡' | '亚庇'>('吉隆坡')
   const mapInstance = useRef<L.Map | null>(null)
+  const mapPlaces = useMemo(() => {
+    const customPlaces = itineraryItems.flatMap(item => {
+      const candidate = item.alternativeId ? alternativeById[item.alternativeId] : undefined
+      if (!candidate) return []
+      return [{ city: candidate.city === 'kuala-lumpur' ? '吉隆坡' as const : '亚庇' as const, name: candidate.mapQuery, nameZh: candidate.nameZh, nameEn: candidate.nameEn, mapQuery: candidate.mapQuery, lat: candidate.latitude, lng: candidate.longitude, use: `CUSTOM · ${item.dateTime?.slice(0, 10) ?? '自定义行程'}` }]
+    })
+    const seen = new Set<string>()
+    return [...places, ...customPlaces].filter(place => { const key = `${place.city}|${place.name}`; if (seen.has(key)) return false; seen.add(key); return true })
+  }, [itineraryItems])
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return
@@ -27,15 +39,15 @@ export function MapView({ jetty, focusTarget }: Props) {
   }, [])
 
   useEffect(() => {
-    const target = focusTarget ? places.find(place => place.name === focusTarget) : undefined
+    const target = focusTarget ? mapPlaces.find(place => place.name === focusTarget || place.mapQuery === focusTarget || place.nameZh === focusTarget || place.nameEn === focusTarget) : undefined
     if (target && target.city !== city) setCity(target.city)
-  }, [focusTarget, city])
+  }, [focusTarget, city, mapPlaces])
 
   useEffect(() => {
     const map = mapInstance.current
     if (!map) return
-    const visiblePlaces = places.filter(place => place.city === city)
-    const target = focusTarget ? visiblePlaces.find(place => place.name === focusTarget) : undefined
+    const visiblePlaces = mapPlaces.filter(place => place.city === city)
+    const target = focusTarget ? visiblePlaces.find(place => place.name === focusTarget || place.mapQuery === focusTarget || place.nameZh === focusTarget || place.nameEn === focusTarget) : undefined
     const center: [number, number] = target
       ? [target.lat, target.lng]
       : city === '吉隆坡'
@@ -60,7 +72,7 @@ export function MapView({ jetty, focusTarget }: Props) {
       )
       if (target?.name === place.name) marker.openPopup()
     })
-  }, [city, focusTarget])
+  }, [city, focusTarget, mapPlaces])
 
   return (
     <div className="map-shell">
