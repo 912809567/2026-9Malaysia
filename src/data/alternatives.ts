@@ -7,6 +7,10 @@ export type AlternativeTimeScope = 'short' | 'half-day' | 'full-day'
 export type PhysicalLoad = 'low' | 'medium' | 'high'
 export type RainyDayFit = 'excellent' | 'okay' | 'poor'
 
+export type OpeningWeekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'
+export type OpeningWindow = { open: string; close: string; lastEntry?: string; closed?: boolean }
+export type OpeningSchedule = Partial<Record<OpeningWeekday, OpeningWindow>>
+
 export type AlternativeAttraction = {
   id: string
   city: TravelCity
@@ -37,6 +41,8 @@ export type AlternativeAttraction = {
   bookingRequired: boolean
   bookingRecommendation?: string
   openingHours?: string
+  /** 仅填写已能按星期结构化核验的官方营业信息；不确定时保留空值并显示 warning。 */
+  openingSchedule?: OpeningSchedule
   compatibleSlotTypes: AlternativeTimeScope[]
   replacementTargets: string[]
   images: PlaceImage[]

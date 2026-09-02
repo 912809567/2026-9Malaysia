@@ -3,6 +3,7 @@ import { alternativeById, type AlternativeAttraction } from './alternatives'
 export type ReservationStatus = 'must' | 'recommended' | 'none' | 'booked'
 export type Replaceability = 'fixed' | 'major' | 'flexible'
 export type SlotType = 'short' | 'half-day' | 'full-day'
+export type ItineraryItemKind = 'activity' | 'transport' | 'fixed-event'
 
 export type ItineraryItem = {
   id: string
@@ -46,6 +47,8 @@ export type ItineraryItem = {
   slotId?: string
   source?: 'default' | 'custom'
   alternativeId?: string
+  /** 活动时间表示抵达 / 开始游览；交通事项时间表示出发。 */
+  itemKind?: ItineraryItemKind
   zone?: string
   routeMinutes?: number
   nextRouteMinutes?: number
@@ -343,9 +346,11 @@ function alternativeSabahItem(date: '2026-09-10' | '2026-09-11' | '2026-09-12', 
   const durationText = candidate.durationMin % 60 === 0
     ? `约${durationHours}小时`
     : `约${durationHours}小时${candidate.durationMin % 60}分钟`
-  const startTime = candidate.timeScope === 'full-day' || candidate.recommendedTime === 'morning'
-    ? '07:00'
-    : candidate.recommendedTime === 'evening' || candidate.recommendedTime === 'night' ? '16:30' : '11:00'
+  // 自定义活动的 Timeline 时间统一表示抵达并开始游览，不表示从酒店出发。
+  const startTime = candidate.timeScope === 'full-day'
+    ? '07:30'
+    : candidate.recommendedTime === 'morning' ? '09:00'
+      : candidate.recommendedTime === 'evening' || candidate.recommendedTime === 'night' ? '16:30' : '11:00'
   const bookingStatus: ReservationStatus = candidate.bookingRequired ? 'must' : 'none'
   return {
     id: `${date}-alternative-${candidate.id}`,
@@ -365,10 +370,11 @@ function alternativeSabahItem(date: '2026-09-10' | '2026-09-11' | '2026-09-12', 
     transportMode: candidate.timeScope === 'full-day' ? 'Grab / 包车 / 运营商接送' : 'Grab / 步行',
     distance: '按官方接送路线与当天路况确认',
     duration: durationText,
-    recommendedDepartureTime: candidate.timeScope === 'full-day' ? '约06:30—07:00，从酒店出发' : `${startTime} 前按当天路线出发`,
-    arrivalTime: candidate.timeScope === 'full-day' ? '约07:30—08:00抵达首个节点' : '按官方开放与路线确认',
+    recommendedDepartureTime: candidate.timeScope === 'full-day' ? '约07:00从酒店出发' : `约${startTime}前从酒店 / 上一项出发`,
+    arrivalTime: `${startTime} 抵达并开始游览`,
     buffer: candidate.bookingRequired ? '预约 / 报到额外预留20—30分钟' : '保留约15分钟找路和补水缓冲',
     reservationStatus: bookingStatus,
+    itemKind: 'activity',
     reservationTiming: candidate.bookingRequired ? candidate.bookingRecommendation : undefined,
     bookingChannel: candidate.bookingRequired ? '景点官方页面 / 运营商' : undefined,
     bookingLink: candidate.bookingRequired ? candidate.sourceUrl : undefined,

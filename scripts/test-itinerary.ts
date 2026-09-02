@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { alternativeAttractions, alternativeById } from '../src/data/alternatives'
 import { itinerary, createSabahActivityItem, type DayPlan, type ItineraryItem } from '../src/data/itinerary'
 import { defaultSabahPlan, activityLabel, customSabahLabel, isCustomSabahActivity, type SabahPlan } from '../src/utils/planSabah'
-import { assessDayLoad, checkInsertion, checkReplacement } from '../src/utils/itineraryConflictChecker'
-import { applyItineraryOverrides, getItemSlotId, replacementCandidates, restoreDay, restoreSlot, upsertOverride } from '../src/utils/itineraryCustomizer'
+import { assessDayLoad, checkInsertion, checkOpeningSchedule, checkReplacement } from '../src/utils/itineraryConflictChecker'
+import { applyItineraryOverrides, cityForInsertionGap, findBestInsertionGaps, getItemSlotId, replacementCandidates, restoreDay, restoreSlot, upsertOverride } from '../src/utils/itineraryCustomizer'
 
 function item(partial: Partial<ItineraryItem> = {}): ItineraryItem {
   const id = partial.id ?? 'test-item'
@@ -216,6 +216,55 @@ assert.equal(customSabahLabel(customActivity), '已自定义：' + kinabalu.name
 const customPlan: SabahPlan = { ...defaultSabahPlan, '2026-09-12': customActivity }
 assert(isCustomSabahActivity(customPlan['2026-09-12']), '自定义SabahPlan应保留alternative活动对象')
 
+const gapA = item({ id: 'gap-a', slotId: 'gap-a', time: '09:00', title: '老城起点', duration: '约30分钟', zone: 'Old Town', mapTarget: 'Central Market Kuala Lumpur' })
+const gapB = item({ id: 'gap-b', slotId: 'gap-b', time: '12:30', title: '湖滨区下一项', duration: '约30分钟', zone: 'Perdana', mapTarget: 'Perdana Botanical Gardens' })
+const gapC = item({ id: 'gap-c', slotId: 'gap-c', time: '16:00', title: 'KLCC晚段', duration: '约30分钟', zone: 'KLCC', mapTarget: 'Petronas Twin Towers' })
+const gapOptions = findBestInsertionGaps([gapA, gapB, gapC], candidate('national-mosque'), '9/8')
+assert(gapOptions.length >= 2, '最佳空档搜索应遍历多个合法 gap')
+assert.equal(gapOptions[0].anchorSlotId, 'gap-a', '多个 gap 时应优先选择同区 / 相邻区且时段匹配的空档')
+assert.equal(gapOptions[0].routeQuality, 'green', '最佳空档应为绿色顺路')
+
+const firstGapDay = applyItineraryOverrides([day('9/8', [gapA, gapB])], [{
+  date: '9/8', slotId: 'insert-national-mosque', action: 'insert', attractionId: 'national-mosque', beforeSlotId: 'gap-a', startTime: '07:30',
+}], alternativeById)[0]
+assert.equal(firstGapDay.items[0].title, '国家清真寺', '首项之前插入必须使用 beforeSlotId')
+assert.equal(firstGapDay.items[0].time, '07:30', '插入活动的 Timeline 时间应保持为抵达 / 开始游览时间')
+
+const scheduledCandidate = { ...candidate('national-mosque'), openingHours: '09:00—17:00', openingSchedule: { tuesday: { open: '09:00', close: '17:00', lastEntry: '16:30' } } }
+const openingReport = checkReplacement({
+  date: '9/8',
+  current: item({ id: 'opening-current', time: '17:30', title: '待替换短时景点', duration: '约30分钟', slotType: 'short', zone: 'Old Town' }),
+  candidate: scheduledCandidate,
+})
+assert.equal(openingReport.canConfirm, false, '17:30到达17:00关闭的景点必须阻止确认')
+assert(openingReport.blockers.some(message => message.includes('超过关闭时间')), '关门冲突应给出明确阻止原因')
+const lastEntryCheck = checkOpeningSchedule({ ...scheduledCandidate, openingSchedule: { tuesday: { open: '09:00', close: '18:00', lastEntry: '17:00' } } }, '9/8', 17 * 60 + 20, 30)
+assert(lastEntryCheck.blockers.some(message => message.includes('最后入场')), '超过lastEntry必须阻止确认')
+const splitOutdoor = assessDayLoad([
+  item({ id: 'split-outdoor-a', time: '09:00', duration: '约2小时', environment: 'outdoor', sunExposure: 'high' }),
+  item({ id: 'split-indoor', time: '11:00', duration: '约2小时', environment: 'indoor', sunExposure: 'low' }),
+  item({ id: 'split-outdoor-b', time: '13:00', duration: '约2小时', environment: 'outdoor', sunExposure: 'high' }),
+])
+assert.equal(splitOutdoor.maxOutdoorBlockMinutes, 120, '户外2小时→室内2小时→户外2小时不能合并成连续4小时')
+assert(!splitOutdoor.warnings.some(message => message.includes('连续户外')), '被室内活动隔开的户外区间不应触发连续暴晒警告')
+
+const consecutiveOutdoor = assessDayLoad([
+  item({ id: 'consecutive-a', time: '09:00', duration: '约2小时', environment: 'outdoor', sunExposure: 'high' }),
+  item({ id: 'consecutive-b', time: '11:15', duration: '约2小时', environment: 'outdoor', sunExposure: 'high' }),
+])
+assert(consecutiveOutdoor.maxOutdoorBlockMinutes > 180, '连续两段户外应计算为超过3小时的连续区间')
+assert(consecutiveOutdoor.warnings.some(message => message.includes('连续户外')), '连续户外超过3小时应提醒')
+
+assert.equal(customDay.items[1].arrivalTime, customDay.items[1].time + ' 抵达并开始游览', '替换后的Timeline时间必须等于活动抵达 / 开始时间')
+const preflight = item({ id: 'preflight', time: '12:45', title: '酒店 → KUL T2', zone: 'Old Town', mapTarget: 'KUL T2' })
+const flightToBki = item({ id: 'flight-to-bki', time: '16:30', title: 'KUL T2 → BKI', zone: 'Old Town', mapTarget: 'KUL T2', replaceability: 'fixed' })
+const bkiArrival = item({ id: 'bki-arrival', time: '19:05', title: 'BKI抵达 · 沙巴入境检查', zone: 'Gaya / City Centre', mapTarget: 'BKI', replaceability: 'fixed' })
+const kkHotel = item({ id: 'kk-hotel', time: '20:30', title: '亚庇喜来登酒店入住', zone: 'Gaya / City Centre', mapTarget: 'Sheraton', replaceability: 'fixed' })
+assert.equal(cityForInsertionGap(preflight, flightToBki), 'kuala-lumpur', '9/9航班前 gap 只能属于吉隆坡')
+assert.equal(cityForInsertionGap(bkiArrival, kkHotel), 'kota-kinabalu', '9/9航班后 gap 才属于亚庇')
+assert.equal(findBestInsertionGaps([preflight, flightToBki], candidate('sabah-museum'), '9/9').length, 0, '9/9航班前不能插入亚庇候选')
+assert.equal(findBestInsertionGaps([bkiArrival, kkHotel], candidate('sabah-museum'), '9/9').length, 0, '9/9抵达后应保留入境、行李、Grab和入住缓冲')
+assert.equal(findBestInsertionGaps([flightToBki, bkiArrival], candidate('kl-tower'), '9/9').length, 0, '跨城市航班 gap 不能被吉隆坡候选占用')
 console.log('✓ itinerary customization scenarios passed')
 console.log('  fixed protection · restore slot/day/all baseline · green/yellow/red route checks')
 console.log('  time reflow · flight conflict · full-day slot guard · SabahPlan custom sync')

@@ -2,7 +2,8 @@ import type { DayPlan, ItineraryItem, Replaceability, SlotType } from '../data/i
 import type { AlternativeAttraction } from '../data/alternatives'
 import { alternativeAttractions } from '../data/alternatives'
 import { estimateReplacementRoute, formatTime, parseTime, zoneForItem, cityForItem, durationMinutes } from './routeEstimator'
-import { checkReplacement } from './itineraryConflictChecker'
+import { estimateTravel, type TravelCity, type TravelEstimate } from '../data/travelZones'
+import { checkInsertion, checkReplacement, getOutdoorBlocks } from './itineraryConflictChecker'
 
 export type OverrideAction = 'replace' | 'remove' | 'insert' | 'move'
 
@@ -12,6 +13,8 @@ export type ItineraryOverride = {
   action: OverrideAction
   attractionId?: string
   anchorSlotId?: string
+  /** 首项之前插入时使用；有 anchorSlotId 时表示插在 anchor 之后。 */
+  beforeSlotId?: string
   targetSlotId?: string
   startTime?: string
   removedTitle?: string
@@ -45,10 +48,13 @@ export function getItemSlotType(item: Pick<ItineraryItem, 'title' | 'duration' |
 
 export function withDefaultItemMeta(item: ItineraryItem): ItineraryItem {
   const slotId = getItemSlotId(item)
+  const replaceability = getItemReplaceability(item)
+  const itemKind = item.itemKind ?? (replaceability === 'fixed' && /航班|机场|入境|换酒店|退房/i.test(item.title) ? 'fixed-event' : /→|出发|返回|取行李/i.test(item.title) ? 'transport' : 'activity')
   return {
     ...item,
     slotId,
-    replaceability: getItemReplaceability(item),
+    replaceability,
+    itemKind,
     slotType: getItemSlotType(item),
     source: item.source ?? 'default',
     zone: item.zone ?? zoneForItem(item),
@@ -69,31 +75,32 @@ function formatDuration(minutes: number) {
 
 export function createAlternativeItineraryItem(date: string, slotId: string, candidate: AlternativeAttraction, current: ItineraryItem, previous?: ItineraryItem, next?: ItineraryItem): ItineraryItem {
   const route = estimateReplacementRoute(current, candidate, previous, next)
-  const start = parseTime(current.time)
-  const arrival = start + route.candidate.minutes
-  const dateTime = `${dateToIso(date)}T${formatTime(start)}:00+08:00`
+  // 活动 Timeline 时间统一表示抵达景点并开始游览；前往交通单独放在建议出发字段。
+  const activityStart = parseTime(current.time)
+  const dateTime = dateToIso(date) + 'T' + formatTime(activityStart) + ':00+08:00'
   const from = previous?.to ?? current.from ?? '上一项行程地点'
   const mode = route.candidate.mode
   return {
-    id: `${date}-${slotId}-custom-${candidate.id}`,
+    id: date + '-' + slotId + '-custom-' + candidate.id,
     slotId,
     source: 'custom',
     alternativeId: candidate.id,
-    time: formatTime(start),
+    itemKind: 'activity',
+    time: formatTime(activityStart),
     title: candidate.nameZh,
     summary: candidate.shortDescription,
-    details: [candidate.description, `区域：${candidate.area} · 预计游览${formatDuration(candidate.durationMin)}`, `路线估算：${route.candidate.note}`, ...candidate.recommendationReasons.map(reason => `为什么去：${reason}`)],
+    details: [candidate.description, '区域：' + candidate.area + ' · 预计游览' + formatDuration(candidate.durationMin), 'Timeline时间 = ' + formatTime(activityStart) + ' 抵达并开始游览', '路线估算：' + route.candidate.note, ...candidate.recommendationReasons.map(reason => '为什么去：' + reason)],
     dateTime,
     tone: candidate.physicalLoad === 'high' ? 'warning' : '',
     image: candidate.images[0]?.src,
-    galleryPlaceId: `alternative:${candidate.id}`,
+    galleryPlaceId: 'alternative:' + candidate.id,
     from,
     to: candidate.nameZh,
     transportMode: mode,
-    distance: `约${route.candidate.distanceKm}km（静态估算）`,
+    distance: '约' + route.candidate.distanceKm + 'km（静态估算）',
     duration: formatDuration(candidate.durationMin),
-    recommendedDepartureTime: `${formatTime(Math.max(0, start - route.candidate.minutes))} 左右从上一项出发`,
-    arrivalTime: formatTime(arrival),
+    recommendedDepartureTime: formatTime(Math.max(0, activityStart - route.candidate.minutes)) + ' 左右从上一项出发',
+    arrivalTime: formatTime(activityStart) + ' 抵达并开始游览',
     buffer: candidate.bookingRequired ? '预约 / 报到需额外预留 20—30 分钟' : '保留约 15 分钟找路和补水缓冲',
     reservationStatus: candidate.bookingRequired ? 'must' : 'none',
     reservationTiming: candidate.bookingRequired ? candidate.bookingRecommendation : undefined,
@@ -105,7 +112,7 @@ export function createAlternativeItineraryItem(date: string, slotId: string, can
     weatherRisk: candidate.rainyDayFit === 'poor' ? '纯户外项目，雷雨或大雨时执行室内 / 酒店 Plan B。' : candidate.rainyDayFit === 'excellent' ? '雨天友好，但仍以官方开放状态为准。' : '天气变化时按现场开放和交通情况调整。',
     fallbackPlan: '若关闭、预约失败或体力不足，回到同区域室内休息 / 咖啡，不强行补景点。',
     onSiteSteps: ['打开官方订单或景点页面，确认当天开放', '到入口 / 集合点核对预约、人数和入场规则', '完成游览后按下一项时间和路线继续行程'],
-    notes: `${candidate.recommendationReasons[0] ?? '按候选景点资料安排'}；路线为区域＋距离静态估算，当天以 Grab / Google Maps 为准。`,
+    notes: (candidate.recommendationReasons[0] ?? '按候选景点资料安排') + '；路线为区域＋距离静态估算，当天以 Grab / Google Maps 为准。',
     verifiedAt: candidate.verifiedAt,
     sourceName: candidate.sourceName,
     sourceLink: candidate.sourceUrl,
@@ -119,7 +126,6 @@ export function createAlternativeItineraryItem(date: string, slotId: string, can
     sunExposure: candidate.sunExposure,
   }
 }
-
 export function recalculateItineraryItems(items: ItineraryItem[]): ItineraryItem[] {
   let previousEnd = 0
   return items.map((item, index) => {
@@ -128,13 +134,167 @@ export function recalculateItineraryItems(items: ItineraryItem[]): ItineraryItem
     const start = index === 0 || isFixed ? originalStart : Math.max(originalStart, previousEnd)
     const shifted = start !== originalStart
     const nextItem = shifted
-      ? { ...item, time: formatTime(start), dateTime: item.dateTime.replace(/T\d{2}:\d{2}/, `T${formatTime(start)}`), recommendedDepartureTime: item.recommendedDepartureTime ? `${formatTime(Math.max(0, start - 15))} 左右` : item.recommendedDepartureTime }
+      ? {
+          ...item,
+          time: formatTime(start),
+          dateTime: item.dateTime.replace(/T\d{2}:\d{2}/, 'T' + formatTime(start)),
+          recommendedDepartureTime: item.itemKind === 'activity' && item.routeMinutes !== undefined
+            ? formatTime(Math.max(0, start - item.routeMinutes)) + ' 左右从上一项出发'
+            : item.recommendedDepartureTime ? formatTime(Math.max(0, start - 15)) + ' 左右' : item.recommendedDepartureTime,
+          arrivalTime: item.itemKind === 'activity' ? formatTime(start) + ' 抵达并开始游览' : item.arrivalTime,
+        }
       : item
-    previousEnd = start + durationMinutes(item) + (item.nextRouteMinutes ?? 0)
+    // previousEnd follows the same convention used by inserted custom items:
+    // activity start + visit + outgoing route/buffer; fixed events retain their slot.
+    previousEnd = start + durationMinutes(nextItem) + (nextItem.nextRouteMinutes ?? 0)
     return nextItem
   })
 }
+export type InsertionGap = {
+  startTime: string
+  endTime: string
+  nextTime?: string
+  anchorSlotId?: string
+  beforeSlotId?: string
+  score: number
+  routeQuality: TravelEstimate['quality']
+  routeToCandidate: TravelEstimate
+  routeToNext?: TravelEstimate
+  reasons: string[]
+  report: ReturnType<typeof checkInsertion>
+}
 
+const cityStartZone: Record<TravelCity, 'KLCC' | 'Gaya / City Centre'> = {
+  'kuala-lumpur': 'KLCC',
+  'kota-kinabalu': 'Gaya / City Centre',
+}
+
+function gapItemEnd(item: ItineraryItem) {
+  return parseTime(item.time) + durationMinutes(item) + (item.nextRouteMinutes ?? 0)
+}
+
+export function cityForInsertionGap(previous?: ItineraryItem, next?: ItineraryItem): TravelCity {
+  if (previous && next) {
+    const previousCity = cityForItem(previous)
+    const nextCity = cityForItem(next)
+    // The gap before a cross-city transport belongs to the city being left.
+    return previousCity === nextCity ? previousCity : previousCity
+  }
+  if (previous) return cityForItem(previous)
+  if (next) return cityForItem(next)
+  return 'kuala-lumpur'
+}
+
+function preferredGapStart(candidate: AlternativeAttraction) {
+  if (candidate.timeScope === 'full-day' || candidate.recommendedTime === 'morning') return 8 * 60
+  if (candidate.recommendedTime === 'afternoon') return 14 * 60
+  if (candidate.recommendedTime === 'evening') return 17 * 60
+  if (candidate.recommendedTime === 'night') return 19 * 60
+  return 12 * 60
+}
+
+function qualityRank(quality: TravelEstimate['quality']) {
+  return quality === 'green' ? 3 : quality === 'yellow' ? 2 : 1
+}
+
+function isRecommendedTime(candidate: AlternativeAttraction, start: number) {
+  const hour = start / 60
+  if (candidate.recommendedTime === 'any') return true
+  if (candidate.recommendedTime === 'morning') return hour >= 7 && hour < 12
+  if (candidate.recommendedTime === 'afternoon') return hour >= 12 && hour < 17
+  if (candidate.recommendedTime === 'evening') return hour >= 16 && hour < 20
+  return hour >= 18
+}
+
+function insertionSimilarityPenalty(candidate: AlternativeAttraction, items: ItineraryItem[]) {
+  const text = items.map(item => item.title).join(' ')
+  if (candidate.id === 'kl-tower' && /双子塔|Petronas/i.test(text)) return 18
+  if (['sepanggar-island', 'north-borneo-sunset-cruise'].includes(candidate.id) && /环滩|TARP|海岛|日落/i.test(text)) return 18
+  if (candidate.timeScope === 'full-day' && /环滩|TARP|红树林/i.test(text)) return 24
+  return 0
+}
+
+export function findBestInsertionGaps(items: ItineraryItem[], candidate: AlternativeAttraction, date: string, weather?: 'good' | 'okay' | 'bad'): InsertionGap[] {
+  if (date === '9/13') return []
+  // 9/9 航班后虽已进入亚庇，但入境、取行李、进城和入住没有舒服的正式景点空档。
+  if (date === '9/9' && candidate.city === 'kota-kinabalu') return []
+  const sorted = [...items].sort((a, b) => parseTime(a.time) - parseTime(b.time))
+  const results: InsertionGap[] = []
+  for (let gapIndex = -1; gapIndex < sorted.length; gapIndex += 1) {
+    const previous = gapIndex >= 0 ? sorted[gapIndex] : undefined
+    const next = gapIndex + 1 < sorted.length ? sorted[gapIndex + 1] : undefined
+    // A gap between two cities is the flight / intercity transfer itself, not
+    // free time. Never place a candidate inside that boundary.
+    if (previous && next && cityForItem(previous) !== cityForItem(next)) continue
+    const city = cityForInsertionGap(previous, next)
+    if (candidate.city !== city) continue
+    const origin = previous ? zoneForItem(previous) : cityStartZone[city]
+    const routeToCandidate = estimateTravel(city, origin, candidate.area)
+    const routeToNext = next ? estimateTravel(city, candidate.area, zoneForItem(next)) : estimateTravel(city, candidate.area, candidate.area)
+    const buffer = candidate.bookingRequired ? 25 : 15
+    const earliest = (previous ? gapItemEnd(previous) : 7 * 60) + routeToCandidate.minutes
+    const latest = (next ? parseTime(next.time) : 21 * 60 + 30) - routeToNext.minutes - buffer - candidate.durationMin
+    if (latest < earliest) continue
+    const preferred = preferredGapStart(candidate)
+    const start = Math.min(Math.max(earliest, preferred), latest)
+    const nextFixed = sorted.slice(Math.max(0, gapIndex + 1)).find(item => getItemReplaceability(item) === 'fixed')
+    const report = checkInsertion({
+      date,
+      startTime: formatTime(start),
+      durationMin: candidate.durationMin,
+      slotType: candidate.timeScope,
+      nextFixedTime: nextFixed?.time,
+      routeMinutes: routeToNext.minutes + buffer,
+      candidate,
+    })
+    if (!report.canConfirm) continue
+    const quality = qualityRank(routeToCandidate.quality) <= qualityRank(routeToNext.quality) ? routeToCandidate.quality : routeToNext.quality
+    if (quality === 'red') continue
+    const temporary = {
+      id: 'insertion-candidate',
+      time: formatTime(start),
+      title: candidate.nameZh,
+      summary: candidate.shortDescription,
+      details: [],
+      dateTime: dateToIso(date) + 'T' + formatTime(start) + ':00+08:00',
+      duration: formatDuration(candidate.durationMin),
+      environment: candidate.environment,
+      sunExposure: candidate.sunExposure,
+    } as ItineraryItem
+    const dayMinutes = sorted.reduce((sum, item) => sum + durationMinutes(item) + (item.routeMinutes ?? 0), 0) + candidate.durationMin + routeToCandidate.minutes + routeToNext.minutes
+    const outdoorMinutes = Math.max(...getOutdoorBlocks([...sorted, temporary]).map(block => block.minutes), 0)
+    let score = candidate.tripFitScore * 10 + candidate.attractionScore * 3
+    score += isRecommendedTime(candidate, start) ? 30 : -8
+    score += quality === 'green' ? 24 : 9
+    score -= routeToCandidate.minutes + routeToNext.minutes
+    score -= dayMinutes > 540 ? 38 : dayMinutes > 420 ? 14 : 0
+    score -= outdoorMinutes > 180 ? 24 : 0
+    score -= insertionSimilarityPenalty(candidate, sorted)
+    if (nextFixed && parseTime(nextFixed.time) - start < 90) score -= 20
+    if (weather === 'bad') score += candidate.rainyDayFit === 'excellent' ? 18 : candidate.rainyDayFit === 'poor' ? -24 : 0
+    const reasons = [
+      isRecommendedTime(candidate, start) ? '符合建议时段' : '虽然不是首选时段，但仍能完整放下',
+      quality === 'green' ? '与前后地点顺接' : '路线可安排，但需要额外交通缓冲',
+      dayMinutes <= 420 ? '当天总量仍在舒服范围' : dayMinutes <= 540 ? '当天会偏满，请不要再增加项目' : '当天总量偏高',
+    ]
+    if (outdoorMinutes > 180) reasons.push('会拉长连续户外区间')
+    if (insertionSimilarityPenalty(candidate, sorted)) reasons.push('与当天已有体验存在重复')
+    results.push({
+      startTime: formatTime(start),
+      endTime: formatTime(start + candidate.durationMin),
+      nextTime: next?.time,
+      anchorSlotId: previous ? getItemSlotId(previous) : undefined,
+      beforeSlotId: previous ? undefined : next ? getItemSlotId(next) : undefined,
+      score,
+      routeQuality: quality,
+      routeToCandidate,
+      routeToNext: next ? routeToNext : undefined,
+      reasons,
+      report,
+    })
+  }
+  return results.sort((a, b) => b.score - a.score)
+}
 export function applyItineraryOverrides(days: DayPlan[], overrides: ItineraryOverride[], candidates: Record<string, AlternativeAttraction>): DayPlan[] {
   return days.map(day => {
     const dayOverrides = overrides.filter(override => override.date === day.date)
@@ -148,11 +308,14 @@ export function applyItineraryOverrides(days: DayPlan[], overrides: ItineraryOve
       }
       if (override.action === 'remove' && index >= 0 && getItemReplaceability(items[index]) !== 'fixed') items.splice(index, 1)
       if (override.action === 'insert' && candidate) {
-        const anchorIndex = override.anchorSlotId ? items.findIndex(item => getItemSlotId(item) === override.anchorSlotId || item.id === override.anchorSlotId) : index
-        const insertAt = anchorIndex >= 0 ? anchorIndex + 1 : items.length
-        const anchor = items[Math.max(0, insertAt - 1)] ?? items[0]
-        const insertContext = override.startTime && anchor ? { ...anchor, time: override.startTime } : anchor
-        items.splice(insertAt, 0, createAlternativeItineraryItem(day.date, override.slotId, candidate, insertContext, items[insertAt - 1], items[insertAt]))
+        const beforeIndex = override.beforeSlotId ? items.findIndex(item => getItemSlotId(item) === override.beforeSlotId || item.id === override.beforeSlotId) : -1
+        const anchorIndex = override.anchorSlotId ? items.findIndex(item => getItemSlotId(item) === override.anchorSlotId || item.id === override.anchorSlotId) : -1
+        const insertAt = beforeIndex >= 0 ? beforeIndex : anchorIndex >= 0 ? anchorIndex + 1 : items.length
+        const previous = items[insertAt - 1]
+        const next = items[insertAt]
+        const context = previous ?? next ?? items[0]
+        const insertContext = override.startTime && context ? { ...context, time: override.startTime } : context
+        if (insertContext) items.splice(insertAt, 0, createAlternativeItineraryItem(day.date, override.slotId, candidate, insertContext, previous, next))
       }
     })
     dayOverrides.filter(override => override.action === 'move').forEach(override => {
