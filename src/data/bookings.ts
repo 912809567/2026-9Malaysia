@@ -12,7 +12,7 @@ export type BookingItem = {
 export const bookingItems: BookingItem[] = [
   {
     id: 'mdac',
-    title: 'MDAC 数字入境卡',
+    title: '马来西亚数字入境卡（MDAC）',
     timing: '9/5或9/6完成',
     status: 'must',
     channel: '马来西亚移民局官方',
@@ -21,17 +21,17 @@ export const bookingItems: BookingItem[] = [
   },
   {
     id: 'petronas',
-    title: 'PETRONAS Twin Towers',
-    timing: '9/8登塔前至少15分钟 Check-in',
+    title: '吉隆坡双子塔',
+    timing: '9/8登塔前至少15分钟 Check-in / 入场确认',
     status: 'must',
     channel: 'PETRONAS官方售票',
     link: 'https://eticket.petronastwintowers.com/',
-    note: 'Timed entry；没有合适时段就执行Pavilion Plan B。',
+    note: '按预约时段入场；没有合适时段就执行柏威年广场（Pavilion）备选方案。',
     fee: '价格以官方售票页实时显示为准',
   },
   {
     id: 'mengalum',
-    title: 'Mengalum 环滩岛',
+    title: '环滩岛',
     timing: '至少提前2—3天订，前一晚确认',
     status: 'must',
     channel: '运营商订单 / Klook搜索',
@@ -40,7 +40,7 @@ export const bookingItems: BookingItem[] = [
   },
   {
     id: 'klias',
-    title: 'Klias 红树林',
+    title: 'Klias红树林',
     timing: '提前1—3天订，前一晚确认',
     status: 'recommended',
     channel: '运营商订单 / Klook搜索',
@@ -49,12 +49,12 @@ export const bookingItems: BookingItem[] = [
   },
   {
     id: 'tarp',
-    title: 'TARP Sapi＋Manukan',
+    title: '东姑阿都拉曼海洋公园 TARP · 沙比岛＋马努干岛',
     timing: '提前1天确认船班和海况',
     status: 'recommended',
-    channel: 'South Jetty现场 / Sabah Parks',
+    channel: '南码头（South Jetty）现场 / Sabah Parks',
     link: 'https://www.sabahparks.org.my/',
-    note: '2026临时码头：South Jetty, Kota Kinabalu Port；最晚返程船约16:00。',
+    note: '2026临时码头：南码头（South Jetty, Kota Kinabalu Port）；最晚返程船约16:00。',
     fee: '成人船票约RM58/人；保护区费RM25/人/天；2026-09-01核验，现场以官方为准',
   },
 ]

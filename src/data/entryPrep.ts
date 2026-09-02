@@ -19,7 +19,7 @@ export const entryPrepItems: EntryPrepItem[] = [
   },
   {
     id: 'mdac-window',
-    title: 'MDAC填写时间',
+    title: '马来西亚数字入境卡（MDAC）填写时间',
     copy: '9/5起可填，推荐9/5或9/6完成；提交后截图，并在没有网络时也能打开。',
     link: 'https://imigresen-online.imi.gov.my/mdac/main',
     linkLabel: '官方 MDAC 入口',

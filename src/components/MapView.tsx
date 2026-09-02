@@ -46,6 +46,7 @@ export function MapView({ jetty, focusTarget }: Props) {
       if (layer instanceof L.Marker) map.removeLayer(layer)
     })
     visiblePlaces.forEach(place => {
+      const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.mapQuery)}`
       const marker = L.marker([place.lat, place.lng], {
         icon: L.divIcon({
           className: 'trip-marker',
@@ -55,7 +56,7 @@ export function MapView({ jetty, focusTarget }: Props) {
         }),
       }).addTo(map)
       marker.bindPopup(
-        `<strong>${place.name}</strong><br/>${place.use}<br/><a href="https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}" target="_blank" rel="noreferrer">Google Maps导航 ↗</a>`,
+        `<strong>${place.nameZh}</strong><br/><small>${place.nameEn}</small><br/>${place.use}<br/><a href="${mapUrl}" target="_blank" rel="noreferrer">Google Maps导航 ↗</a>`,
       )
       if (target?.name === place.name) marker.openPopup()
     })

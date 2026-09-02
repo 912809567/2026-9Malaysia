@@ -1,5 +1,5 @@
 export const trip = {
-  title: 'Malaysia 2026',
+  title: '马来西亚 2026',
   subtitle: '吉隆坡 × 亚庇',
   start: '2026-09-07',
   end: '2026-09-13',
@@ -21,7 +21,7 @@ export function tripStatus(now = new Date()) {
   if (now < start) return { label: `距离出发还有 ${diff} 天`, kind: 'before' as const }
   if (now <= end) {
     const day = Math.floor((now.getTime() - start.getTime()) / 86400000) + 1
-    return { label: `旅行 Day ${day}`, kind: 'during' as const }
+    return { label: `旅行第 ${day} 天`, kind: 'during' as const }
   }
   return { label: '旅程已完成', kind: 'after' as const }
 }

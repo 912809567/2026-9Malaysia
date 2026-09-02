@@ -49,7 +49,7 @@ export function GalleryLightbox({place,initialIndex=0,onClose,onOpenDay,day}:Pro
         <span className="gallery-count">{index+1} / {place.images.length}</span>
       </div>
       <div className="gallery-thumbs" aria-label="相册缩略图">{place.images.map((item,itemIndex)=><button className={itemIndex===index?'active':''} key={item.creditId} onClick={()=>setIndex(itemIndex)} aria-label={'查看第'+(itemIndex+1)+'张'}><img src={resolveImageSrc(item.src)} alt="" loading="lazy"/></button>)}</div>
-      <div className="lightbox-meta"><div className="micro">{place.english}</div><h3>{place.title}</h3>{image.caption&&<p className="gallery-caption">{image.caption}</p>}{credit&&<div className="gallery-credit">Photo · {credit.author} · {credit.license} · <a href={credit.original} target="_blank" rel="noreferrer">来源页 ↗</a></div>}{day&&onOpenDay&&<button className="ghost-btn small" onClick={()=>{onClose();onOpenDay(day)}}>查看 {day} 行程 ↗</button>}</div>
+      <div className="lightbox-meta"><h3>{place.title}</h3><div className="entity-english">{place.english}</div>{image.caption&&<p className="gallery-caption">{image.caption}</p>}{credit&&<div className="gallery-credit">图片 · {credit.author} · {credit.license} · <a href={credit.original} target="_blank" rel="noreferrer">来源页 ↗</a></div>}{day&&onOpenDay&&<button className="ghost-btn small" onClick={()=>{onClose();onOpenDay(day)}}>查看 {day} 行程 ↗</button>}</div>
     </div>
   </div>
 }

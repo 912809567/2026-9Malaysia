@@ -3,7 +3,7 @@ export type DiscoverCategory = '吉隆坡' | '亚庇城市' | '海岛与活动'
 export type PlaceImage = {src:string;alt:string;caption?:string;creditId:string;kind?:'cover'|'landmark'|'experience'|'detail';isReference?:boolean;referenceLabel?:string}
 export type DiscoverPlace = {id:string;category:DiscoverCategory;title:string;english:string;positioning:string;tags:string[];intro:string;images:PlaceImage[];coverImageIndex?:number;day?:string;details?:string[];placeName?:string;activity?:'mengalum'|'tarp'|'mangrove'|'city'|'rest'}
 
-export const discoverPlaces:DiscoverPlace[]=[
+const discoverPlacesRaw:DiscoverPlace[]=[
  {id:'petronas',category:'吉隆坡',title:'双子塔',english:'Petronas Twin Towers',positioning:'吉隆坡最具代表性的城市地标，第一晚以地面夜景为主。',tags:['城市地标','夜景','KLCC','9/7'],intro:'9/7观景台关闭；9/8如需要可登塔，KLCC公园适合拍双塔全景。',day:'9/7',details:['9/7观景台关闭','9/8如需要可登塔','KLCC公园适合拍双塔全景'],placeName:'KLCC',images:[{src:'images/places/petronas/night-01.webp',alt:'夜色中的吉隆坡双子塔',caption:'双子塔夜景',creditId:'petronas-night-01',kind:'cover'},{src:'images/places/petronas/klcc-park.webp',alt:'双子塔与KLCC公园',caption:'双子塔与 KLCC 公园',creditId:'petronas-klcc-park-02',kind:'landmark'},{src:'images/places/petronas/day-03.webp',alt:'白天的双子塔',caption:'双子塔日景',creditId:'petronas-day-03',kind:'detail'}]},
  {id:'merdeka',category:'吉隆坡',title:'独立广场',english:'Merdeka Square',positioning:'老城区步行线的起点，马来西亚独立历史核心区域。',tags:['历史','建筑','老城区','9/8'],intro:'从独立广场出发，串起苏丹阿都沙末大厦、中央市场和茨厂街。',day:'9/8',placeName:'独立广场',images:[{src:'images/places/merdeka/square-01.webp',alt:'吉隆坡独立广场',caption:'独立广场全景',creditId:'merdeka-square-01',kind:'cover'},{src:'images/places/merdeka/square-02.webp',alt:'独立广场建筑群',caption:'独立广场与老城建筑',creditId:'merdeka-square-02',kind:'landmark'}]},
  {id:'sultan',category:'吉隆坡',title:'苏丹阿都沙末大厦',english:'Sultan Abdul Samad Building',positioning:'一眼能认出的殖民建筑，和独立广场一起看最顺路。',tags:['殖民建筑','拍照','老城'],intro:'拱廊、钟楼和红砖立面是老城线的视觉重点。',day:'9/8',placeName:'独立广场',images:[{src:'images/places/sultan-abdul-samad/clock-tower.webp',alt:'苏丹阿都沙末大厦钟楼',caption:'钟楼细节',creditId:'sultan-abdul-samad-01',kind:'cover'},{src:'images/places/sultan-abdul-samad/facade.webp',alt:'苏丹阿都沙末大厦立面',caption:'大厦红砖立面',creditId:'sultan-abdul-samad-02',kind:'landmark'}]},
@@ -21,3 +21,30 @@ export const discoverPlaces:DiscoverPlace[]=[
  {id:'manukan',category:'海岛与活动',title:'Manukan Island',english:'Manukan Island',positioning:'更适合沙滩躺平、散步和把体力留给下午。',tags:['沙滩','躺平','岛较大'],intro:'和Sapi组合时，一个负责浮潜，一个负责放松。',activity:'tarp',images:[{src:'images/places/manukan/beach.webp',alt:'Manukan Island 沙滩',caption:'Manukan Island 海滩',creditId:'manukan-beach-01',kind:'cover'},{src:'images/places/manukan/jetty-view.webp',alt:'从 Manukan Island 码头看亚庇',caption:'Manukan Island 码头视角',creditId:'manukan-jetty-02',kind:'landmark'},{src:'images/places/manukan/pier.webp',alt:'Manukan Island 码头',caption:'Manukan Island 码头',creditId:'manukan-pier-03',kind:'detail'}]},
  {id:'klias',category:'海岛与活动',title:'Klias红树林',english:'Klias Mangrove',positioning:'下午＋晚上的大半日活动，不是市郊轻松散步。',tags:['长鼻猴','萤火虫','长车程','可舍弃'],intro:'约100km，通常下午出发、看长鼻猴、晚餐、萤火虫，晚上返回；不与TARP同日。',activity:'mangrove',images:[{src:'images/places/klias/river-01.webp',alt:'Klias 河道红树林',caption:'Klias 河道',creditId:'klias-river-01',kind:'cover'},{src:'images/places/klias/river-02.webp',alt:'Klias 河流与湿地',caption:'Klias 湿地河道',creditId:'klias-river-02',kind:'landmark'},{src:'images/places/klias/proboscis-monkey.webp',alt:'Klias 湿地长鼻猴',caption:'Klias 湿地长鼻猴',creditId:'klias-monkey-03',kind:'experience'}]}
 ]
+
+type DiscoverNaming=Pick<DiscoverPlace,'title'|'english'|'placeName'>&Partial<Pick<DiscoverPlace,'intro'|'tags'|'details'>>
+const discoverNaming:Record<string,DiscoverNaming>={
+ petronas:{title:'吉隆坡双子塔',english:'Petronas Twin Towers',placeName:'Petronas Twin Towers'},
+ merdeka:{title:'独立广场',english:'Merdeka Square',placeName:'Merdeka Square'},
+ sultan:{title:'苏丹阿都沙末大厦',english:'Sultan Abdul Samad Building',placeName:'Sultan Abdul Samad Building'},
+ central:{title:'中央市场',english:'Central Market',placeName:'Central Market Kuala Lumpur'},
+ petaling:{title:'茨厂街',english:'Petaling Street',placeName:'Petaling Street'},
+ 'kwai-chai':{title:'鬼仔巷',english:'Kwai Chai Hong',placeName:'Kwai Chai Hong'},
+ batu:{title:'黑风洞',english:'Batu Caves',placeName:'Batu Caves'},
+ 'tanjung-aru':{title:'丹绒亚路海滩',english:'Tanjung Aru Beach',placeName:'Tanjung Aru Beach'},
+ gaya:{title:'加雅街',english:'Gaya Street',placeName:'Gaya Street'},
+ 'api-api':{title:'Api Api夜市',english:'Api Api Night Food Market',placeName:'Api Api Night Food Market',intro:'晚上正式入住亚庇凯悦尚萃酒店后再去逛，注意现金和价格确认。'},
+ waterfront:{title:'亚庇海滨',english:'KK Waterfront',placeName:'KK Waterfront'},
+ mengalum:{title:'环滩岛',english:'Mengalum Island',placeName:'Mengalum Island',intro:'船程长，晕船药要带；动态排期把最早的“海况优秀”留给它。'},
+ tarp:{title:'东姑阿都拉曼海洋公园',english:'Tunku Abdul Rahman Park · TARP',placeName:'Tunku Abdul Rahman Park',tags:['近海','轻松','浮潜','沙比岛＋马努干岛'],intro:'两岛少换一次船，更多浮潜和沙滩时间；默认沙比岛＋马努干岛。',details:['沙比岛：初学浮潜、岛小、体验集中','马努干岛：岛较大、沙滩、躺平、散步','08:30—15:00左右']},
+ sapi:{title:'沙比岛',english:'Sapi Island',placeName:'Sapi Island'},
+ manukan:{title:'马努干岛',english:'Manukan Island',placeName:'Manukan Island',intro:'和沙比岛组合时，一个负责浮潜，一个负责放松。'},
+ klias:{title:'Klias红树林',english:'Klias Wetlands',placeName:'Klias Wetlands'},
+}
+
+const islandImageNames:Record<string,[string,string]>={sapi:['Sapi Island','沙比岛'],manukan:['Manukan Island','马努干岛']}
+export const discoverPlaces:DiscoverPlace[]=discoverPlacesRaw.map(place=>{
+ const names=islandImageNames[place.id]
+ const images=names?place.images.map(image=>({...image,alt:image.alt.replaceAll(names[0],names[1]),caption:image.caption?.replaceAll(names[0],names[1])})):place.images
+ return {...place,...discoverNaming[place.id],images}
+})
