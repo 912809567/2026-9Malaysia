@@ -500,9 +500,15 @@ body { font-size:16px; line-height:1.6; }
   .time { flex-basis:54px; font-size:14px; }
   .event-title { font-size:16px; }
   .summary { font-size:15px; }
-  .timeline-main { gap:11px; }
-  .timeline { padding-left:20px; }
-  .timeline-item::before { left:-26px; }
+  .itinerary-layout > .card { padding-left:14px; padding-right:14px; }
+  .timeline-main { display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:10px; row-gap:6px; align-items:start; }
+  .timeline-main > .time { grid-column:1; grid-row:1; width:auto; flex:none; padding-top:0; align-self:center; }
+  .timeline-main > .complete-btn { grid-column:2; grid-row:1; justify-self:end; min-height:36px; padding:7px 10px; }
+  .timeline-main > .event { grid-column:1 / -1; grid-row:2; min-width:0; overflow-wrap:anywhere; }
+  .timeline .summary { line-height:1.65; }
+  .timeline .timeline-item-meta > button { width:auto; min-width:34px; min-height:34px; padding:6px 9px; }
+  .timeline { margin-left:6px; padding-left:18px; }
+  .timeline-item::before { left:-24px; top:13px; }
   .day-load-summary { width:100%; }
   .day-heading-actions { align-items:stretch; flex-direction:column; }
   .day-heading-actions .ghost-btn { align-self:flex-start; }
